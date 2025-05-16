@@ -51,6 +51,10 @@ void INTERRUPT_Initialize(void)
     // Priority: 1
     IPC11bits.DMTIP = 1;
     
+    // CCT1: CCP1 Timer Event
+    // Priority: 1
+    IPC1bits.CCT1IP = 1;
+    
     // U1EVT: UART1 Event
     // Priority: 1
     IPC47bits.U1EVTIP = 1;
@@ -74,6 +78,7 @@ void INTERRUPT_Deinitialize(void)
     //POR default value of priority
     IPC6bits.C1IP = 4;
     IPC11bits.DMTIP = 4;
+    IPC1bits.CCT1IP = 4;
     IPC47bits.U1EVTIP = 4;
     IPC12bits.U1EIP = 4;
     IPC3bits.U1TXIP = 4;

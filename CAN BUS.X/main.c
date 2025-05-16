@@ -23,9 +23,12 @@
 #include "mcc_generated_files/system/system.h"
 #include "mcc_generated_files/can/can1.h"
 #include "mcc_generated_files/system/pins.h"
+#include "mcc_generated_files/timer/sccp1.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include "isotp.h"
+
 /*
     Main application
 */
@@ -75,7 +78,7 @@ static void PrintCanMsgObjStruct(struct CAN_MSG_OBJ *rxCanMsg)
 }
 
 
-int main(){
+/*int main(){
     
     SYSTEM_Initialize();
     
@@ -96,17 +99,16 @@ canMsg.field.formatType= CAN_2_0_FORMAT;
 
 canMsg.data=txData;
 
-while(1){
-    
-/*CAN_Driver.Transmit(CAN1_TXQ, &canMsg);
+
+CAN_Driver.Transmit(CAN1_TXQ, &canMsg);
  printf("******** FRAME SENT*********\r\n");
 PrintCanMsgObjStruct(&canMsg);
             // Optional: handle error (e.g., FIFO full, BRS error)
        
 
-        __delay_ms(10000);  // Delay between messages*/
+        __delay_ms(10000);  // Delay between messages
         
- /*     while (!CAN_Driver.Receive(&rxMsg));
+     while (!CAN_Driver.Receive(&rxMsg));
  
     // === STEP 5: Process Received Message ===
     if (rxMsg.msgId == 0x65 && rxMsg.field.dlc == 8)
@@ -115,9 +117,10 @@ PrintCanMsgObjStruct(&canMsg);
          LED_GREEN_Toggle();
          PrintCanMsgObjStruct(&rxMsg);
         // Example: toggle a pin or compare data
-    }*/
+    }
         
         
+   
     if (canInt){
   if (CAN1_Receive(&rxMsg))  // This also calls UINC to update the FIFO pointer
     {
@@ -126,23 +129,100 @@ PrintCanMsgObjStruct(&canMsg);
   C1INTHbits.RXIE = 1;
 IEC1bits.C1RXIE = 1;
 C1FIFOCON1Lbits.TFNRFNIE = 1;
-}
+}*/
         
+
+
+static IsoTpLink g_link;
+static uint8_t g_isotpSendBuf[512];
+static uint8_t g_isotpRecvBuf[512];
+static uint8_t payload[512];
+static uint16_t out_size;
+static uint8_t recv_buf[512];
+
+int main(void){
+    
+  SYSTEM_Initialize();
+  
+isotp_init_link(&g_link, 0x7E8, 
+                                    g_isotpSendBuf, sizeof(g_isotpSendBuf), 
+                                    g_isotpRecvBuf, sizeof(g_isotpRecvBuf));
+
+
+      
+    printf("System booting...\r\n");
+ struct CAN_MSG_OBJ rxMsg;
+
+uint8_t response_payload[32] = {
+    0xDE, 0xAD, 0xBE, 0xEF,
+    0x01, 0x02, 0x03, 0x04,
+    0x05, 0x06, 0x07, 0x08,
+    0x09, 0x0A, 0x0B, 0x0C,0xDE, 0xAD, 0xBE, 0xEF,
+    0x01, 0x02, 0x03, 0x04,
+    0x05, 0x06, 0x07, 0x08,
+    0x09, 0x0A, 0x0B, 0x0C
+};
+
+while (1) {
+    // === STEP 1: Feed ISO-TP with incoming CAN frames ===
+    if (CAN_Driver.Receive(&rxMsg)) {
+        if (rxMsg.msgId == 0x7E0) {  // Physical request ID from client
+            isotp_on_can_message(&g_link, rxMsg.data, rxMsg.field.dlc);
+        }
+    }
+
+    // === STEP 2: Update ISO-TP state machine (handles timeouts etc.) ===
+    isotp_poll(&g_link);
+
+    // === STEP 3: Try to receive a full ISO-TP message ===
+    int ret = isotp_receive(&g_link, recv_buf, sizeof(recv_buf), &out_size);
+    if (ret == ISOTP_RET_OK) {
+        // ? Received request over ISO-TP
+        //printf("[ISO-TP] Received %u bytes: ", out_size);
+        /*for (uint16_t i = 0; i < out_size; i++) {
+            printf("0x%02X ", recv_buf[i]);
+        }
+        printf("\r\n");*/
+
+        // === STEP 4: Respond back using ISO-TP ===
+        int send_ret = isotp_send(&g_link, response_payload, sizeof(response_payload));
+        if (send_ret == ISOTP_RET_OK) {
+          // printf("?? Response sent over ISO-TP!\r\n");
+        } else {
+          // printf("? Failed to send ISO-TP response!\r\n");
+        }
+    }
+
+}
+    }
+
+    
+
+
+
+
+
+volatile uint32_t system_millis=0;
+
+void __attribute__((interrupt, no_auto_psv)) _CCT1Interrupt(void)
+{
+    system_millis++;
+    IFS0bits.CCT1IF = 0;
 }
 
 
-}
+
 
 
 void __attribute__((__interrupt__, no_auto_psv)) _C1RXInterrupt(void)
 {
-    canInt = true;
+    
 
     // Clear RX interrupt flags
-    C1INTLbits.RXIF = 0;
+   C1INTLbits.RXIF = 0;
     IFS1bits.C1RXIF = 0;
 
-    // Optionally disable interrupts if processing will take time
+    //Optionally disable interrupts if processing will take time
     C1INTHbits.RXIE = 0;
     IEC1bits.C1RXIE = 0;
     C1FIFOCON1Lbits.TFNRFNIE = 0;

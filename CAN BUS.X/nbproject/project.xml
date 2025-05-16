@@ -8,7 +8,10 @@
             <make-project-type>0</make-project-type>
             <sourceEncoding>ISO-8859-1</sourceEncoding>
             <make-dep-projects/>
-            <sourceRootList/>
+            <sourceRootList>
+                <sourceRootElem>../../../Users/tontsaapg/Downloads/isotp-c-master/isotp-c-master</sourceRootElem>
+                <sourceRootElem>isotp-c-master/isotp-c-master</sourceRootElem>
+            </sourceRootList>
             <confList>
                 <confElem>
                     <name>default</name>

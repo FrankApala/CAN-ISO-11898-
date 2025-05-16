@@ -40,7 +40,7 @@
 #include <string.h>
 #include "../can_types.h"    
 #include "../can1.h"
-#include<stdio.h>
+
 // CAN Bus FIFO Memory information
 #define CAN1_FIFO_ALLOCATE_RAM_SIZE    1024U // CAN FIFO allocated ram size based on (number of FIFO x FIFO message Payload size x Message object DLC size)
 
@@ -107,7 +107,6 @@ const struct CAN_INTERFACE CAN_Driver = {
     .TxAttemptCallbackRegister = &CAN1_TxAttemptCallbackRegister,
     .RxBufferOverFlowCallbackRegister = &CAN1_RxBufferOverFlowCallbackRegister,
     .Tasks = NULL
-    
 };
 
 // Section: Private Variable Definitions
@@ -122,7 +121,6 @@ static void (*CAN1_ModeChangeHandler)(void) = NULL;
 static void (*CAN1_SystemErrorHandler)(void) = NULL;
 static void (*CAN1_TxAttemptHandler)(void) = NULL;
 static void (*CAN1_RxBufferOverFlowHandler)(void) = NULL;
-
 
 // CAN Receive FIFO Message object data field 
 static uint8_t rxMsgData[CAN1_RX_FIFO_MSG_DATA];
@@ -497,8 +495,8 @@ static void CAN1_RX_FIFO_FilterMaskConfiguration(void)
     C1FLTOBJ0L = 0x2000;
     // EID 3; EXIDE disabled; SID11 disabled; 
     C1FLTOBJ0H = 0x3;
-    // MSID 1946; MEID 30; 
-    C1MASK0L = 0xF79A;
+    // MSID 26; MEID 30; 
+    C1MASK0L = 0xF01A;
     // MEID 8191; MSID11 disabled; MIDE disabled; 
     C1MASK0H = 0x1FFF;
     // Enable the filter 0
@@ -533,18 +531,19 @@ static void CAN1_ErrorNotificationEnable(void)
     CAN1_SystemErrorCallbackRegister(&CAN1_SystemErrorCallback);
     CAN1_TxAttemptCallbackRegister(&CAN1_TxAttemptCallback);
     CAN1_RxBufferOverFlowCallbackRegister(&CAN1_RxBufferOverFlowCallback);
+
     // Clear the interrupt flags
     IFS1bits.C1IF = 0; // CAN Info Interrupt flag
-    IFS1bits.C1RXIF = 0;
+    
     // IVMIF disabled; WAKIF disabled; CERRIF disabled; SERRIF disabled; TBCIF disabled; MODIF disabled; 
     C1INTL = 0x0;
     // IVMIE enabled; TEFIE disabled; RXOVIE enabled; RXIE disabled; WAKIE enabled; TXIE disabled; CERRIE enabled; SERRIE enabled; MODIE enabled; TXATIE enabled; TBCIE disabled; 
-    C1INTH = 0xFC0A;
-  C1FIFOCON1Lbits.TFNRFNIE = 1; // Enable FIFO Not Empty interrupt
+    C1INTH = 0xFC08;
+   C1FIFOCON1Lbits.TFNRFNIE = 1; // Enable FIFO Not Empty interrupt
     C1INTHbits.RXIE = 1;          // Enable CAN RX Interrupt (module level)
     IEC1bits.C1RXIE = 1;   
-    IEC1bits.C1IE = 1; // CAN Info Interrupt Enable bit  
-   
+    IEC1bits.C1IE = 1; // CAN Info Interrupt Enable bit 
+    
 }
 
 // Section: Driver Interface Function Definitions
@@ -1004,7 +1003,6 @@ void __attribute__ ((weak)) CAN1_SystemErrorCallback ( void )
 
 } 
 
-
 void CAN1_TxAttemptCallbackRegister(void (*handler)(void))
 {
     if(NULL != handler)
@@ -1018,8 +1016,6 @@ void __attribute__ ((weak)) CAN1_TxAttemptCallback(void)
 
 }
 
-
-
 void CAN1_RxBufferOverFlowCallbackRegister(void (*handler)(void))
 {
     if(NULL != handler)
@@ -1032,7 +1028,6 @@ void __attribute__ ((weak)) CAN1_RxBufferOverFlowCallback(void)
 { 
 
 } 
-
 
 void __attribute__((__interrupt__, no_auto_psv)) _C1Interrupt(void)
 {
@@ -1106,30 +1101,6 @@ void __attribute__((__interrupt__, no_auto_psv)) _C1Interrupt(void)
             C1FIFOSTA1bits.RXOVIF = 0;
         }
     }
-    
-    // Check if RXIF is set: at least one RX event occurred
-    if (C1INTLbits.RXIF)
-    {
-        // Now confirm specifically that FIFO1 has a message
-        if (C1FIFOSTA1bits.TFNRFNIF)
-        {
-            struct CAN_MSG_OBJ rxMsg;
-
-            // Try to read the received message from FIFO1
-            if (CAN1_ReceiveMessageGet(CAN1_FIFO_1, &rxMsg))
-            {
-                // Process received message (custom function)
-                printf("i am here\r\n");
-            }
-
-            // Clear TFNRFNIF manually if needed (not always required?some versions clear it automatically)
-            C1FIFOSTA1bits.TFNRFNIF = 0;
-        }
-
-        // Clear RXIF
-        C1INTLbits.RXIF = 0;
-    }
-   
     
     IFS1bits.C1IF = 0;
 }
